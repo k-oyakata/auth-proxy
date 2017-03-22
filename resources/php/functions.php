@@ -13,17 +13,60 @@ function session_start()
 }
 */
 
-function request_by_local_user_session()
+/**
+ * Redirect to the JupyterHub if local user was authenticated.
+ */
+function redirect_by_local_user_session()
 {
     @session_start();
 
     if (isset($_SESSION['username'])) {
+        // check user entry
+
+        // redirect to hub
         header("X-Accel-Redirect: /entrance/");
         header("X-Reproxy-URL: ".HUB_URL.$_SERVER['HTTP_X_REPROXY_URI']);
         exit;
     }
 }
 
+/**
+ * Redirect to the JupyterHub if Gakunin user was authenticated.
+ */
+function redirect_by_fed_user_session()
+{
+    @session_start();
+
+    $as = new SimpleSAML_Auth_Simple('default-sp');
+    if ($as->isAuthenticated()) {
+        if (isset($_SESSION['username'])) {
+            // redirect to JupyterHub
+            header("X-Accel-Redirect: /entrance/");
+            header("X-Reproxy-URL: ".HUB_URL.$_SERVER['HTTP_X_REPROXY_URI']);
+        } else { 
+            // maybe access to other course
+            // redirect to authenticator of JupyterHub
+            $attributes = $as->getAttributes();
+            $mail_address = $attributes[GF_ATTRIBUTES['mail']][0];
+            $group_list = $attributes[GF_ATTRIBUTES['isMemberOf']];
+            // check authorization
+            if (check_authorization($group_list)) {
+                session_regenerate_id(true);
+                $username = get_username_from_mail_address($mail_address);
+                $_SESSION['username'] = $username;
+
+                header("X-Accel-Redirect: /entrance/");
+                header("X-Reproxy-URL: ".HUB_URL.'/'.COURSE_NAME."/hub/login");
+                header("X-REMOTE-USER: $username");
+            } else {
+                // redirect to message page
+                header("X-Accel-Redirect: /entrance/");
+                header("X-Reproxy-URL: https://".$_SERVER['HTTP_HOST']."/no_author");
+            } 
+        }
+        exit;
+    }
+}
 
 /**
  * Logout from the federation
@@ -34,6 +77,29 @@ function logout_fed()
     if ($as->isAuthenticated()) {
         $as->logout();
     }
+}
+
+/**
+ * Check the user autorization of this Coursen
+ *
+ * @param string $group_list list of groups where a user belongs to
+ * @return bool True if user authorized, otherwise False
+ */
+function check_authorization($group_list)
+{
+    $result = True;
+    if (empty(AUTHOR_GROUP_LIST)) {
+        $result = True;
+    } else {
+       foreach ($group_lista as $group) {
+           if (in_array($group, AUTHOR_GROUP_LIST)) { 
+               $result = True;
+               break;
+           }
+       }   
+    }
+
+    return $result;
 }
 
 /**
