@@ -21,17 +21,12 @@ RUN set -x \
         php5.6-pgsql \
     && ln -sf /dev/stdout /var/log/nginx/access.log \
     && ln -sf /dev/stderr /var/log/nginx/error.log \
-    && cd /tmp \
-    && curl -sS https://getcomposer.org/installer | php \
-    && mv composer.phar /usr/local/bin/composer \
-    && chmod +x /usr/local/bin/composer \
     # Install simplesamlphp
     && cd /var/www \
     && curl -Lo /var/www/downloaded-simplesamlphp.tar.gz https://simplesamlphp.org/download?latest \
     && tar xvfz downloaded-simplesamlphp.tar.gz \
     && mv $( ls | grep simplesaml | grep -v *tar.gz ) simplesamlphp \
-    && rm /var/www/downloaded-simplesamlphp.tar.gz \
-    && composer require niif/simplesamlphp-module-attributeaggregator:1.*
+    && rm /var/www/downloaded-simplesamlphp.tar.gz 
 
 # Configure PHP settings
 RUN perl -pi -e 's/;cgi.fix_pathinfo=1/cgi.fix_pathinfo=0/g' /etc/php/5.6/fpm/php.ini
@@ -64,7 +59,7 @@ RUN set -x \
     && chown -R www-data:www-data /var/www/simplesamlphp
 
 # Boot up Nginx, and PHP5-FPM when container is started
-CMD service php5.6-fpm start && nginx -g 'daemon off;'
+CMD service php5.6-fpm start && service nginx start
 
 # Set the current working directory
 WORKDIR /var/www/html
